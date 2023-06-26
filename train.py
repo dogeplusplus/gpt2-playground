@@ -82,7 +82,7 @@ class LitGPT(pl.LightningModule):
         self.beta2 = beta2
         self.weight_decay = weight_decay
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model"])
 
     def training_step(self, batch, batch_idx):
         x, y = batch
