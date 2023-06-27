@@ -48,7 +48,7 @@ encoder = tiktoken.get_encoding("gpt2")
 start_ids = encoder.encode(start)
 x = (torch.tensor(start_ids, dtype=torch.long).unsqueeze(0)).to(device)
 
-num_samples = 10
+num_samples = 1
 max_new_tokens = 500
 with torch.no_grad():
     for i in range(num_samples):
