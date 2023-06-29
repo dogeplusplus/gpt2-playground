@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import pytorch_lightning as pl
 
+
 from torch.utils.data import Dataset
 
 from model import GPTConfig, GPT
@@ -161,7 +162,7 @@ def main():
         max_epochs=10,
         accumulate_grad_batches=accumulation_steps,
         precision="bf16",
-        strategy="ddp",
+        strategy="deepspeed_stage_2",
         devices=1,
         callbacks=[checkpoint_callback],
     )
