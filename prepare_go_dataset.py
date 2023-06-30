@@ -8,8 +8,9 @@ from sgfmill import sgf
 from pathlib import Path
 from rich.progress import track
 
+# For some reason there are moves on the 19th position
 ALL_MOVES = [
-    (p, (i, j)) for p in ('b', 'w') for i in range(19) for j in range(19)
+    (p, (i, j)) for p in ('b', 'w') for i in range(25) for j in range(25)
 ] + [('w', None), ('b', None)]
 
 ENCODING = {
@@ -24,7 +25,7 @@ def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
     return moves_encoded
 
 
-def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path) -> List[int]:
+def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path, max_seq_length: int = 512) -> List[int]:
     moves_df.dropna(subset=["moves", "result"], inplace=True)
 
     train_df = moves_df.sample(frac=0.9)
@@ -36,10 +37,15 @@ def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path) -> List[int]:
     train_ids = [grid_encoding(m) for m in train_df["moves"].to_list()]
     val_ids = [grid_encoding(m) for m in val_df["moves"].to_list()]
 
-    max_seq_length = max(len(x) for x in train_ids + val_ids)
     # 0 for padding
-    train_ids = np.array([x + [0] * (max_seq_length - len(x)) for x in train_ids], dtype=np.uint16)
-    val_ids = np.array([x + [0] * (max_seq_length - len(x)) for x in val_ids], dtype=np.uint16)
+    train_ids = np.array(
+        [x + [0] * (max_seq_length - len(x)) for x in train_ids if len(x) <= max_seq_length],
+        dtype=np.uint16,
+    )
+    val_ids = np.array(
+        [x + [0] * (max_seq_length - len(x)) for x in val_ids if len(x) <= max_seq_length],
+        dtype=np.uint16,
+    )
 
     np.save(Path(output_file).with_suffix(".train.npy"), train_ids)
     np.save(Path(output_file).with_suffix(".val.npy"), val_ids)

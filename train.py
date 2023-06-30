@@ -32,6 +32,21 @@ class ShakespeareDataset(Dataset):
         return x, y
 
 
+class GoDataset(Dataset):
+    def __init__(self, data):
+        super().__init__()
+        self.data = data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        x = torch.from_numpy(np.concatenate([self.data[idx, :-1], np.array([0])]).astype(np.int64))
+        y = torch.from_numpy(np.concatenate([self.data[idx, 1:], np.array([0])]).astype(np.int64))
+
+        return x, y
+
+
 class GPTDataModule(pl.LightningDataModule):
     def __init__(self, train_file, val_file, batch_size, block_size):
         super().__init__()
@@ -42,11 +57,11 @@ class GPTDataModule(pl.LightningDataModule):
         self.block_size = block_size
 
     def setup(self, stage=None):
-        self.train_data = np.memmap(self.train_file, dtype=np.uint16)
-        self.val_data = np.memmap(self.val_file, dtype=np.uint16)
+        self.train_data = np.load(self.train_file).astype(np.int16)
+        self.val_data = np.load(self.val_file).astype(np.int16)
 
     def train_dataloader(self):
-        train_ds = ShakespeareDataset(self.train_data, self.block_size)
+        train_ds = GoDataset(self.train_data)
         train_loader = torch.utils.data.DataLoader(
             train_ds,
             batch_size=self.batch_size,
@@ -56,7 +71,7 @@ class GPTDataModule(pl.LightningDataModule):
         return train_loader
 
     def val_dataloader(self):
-        val_ds = ShakespeareDataset(self.val_data, self.block_size)
+        val_ds = GoDataset(self.val_data)
         val_loader = torch.utils.data.DataLoader(
             val_ds,
             batch_size=self.batch_size,
@@ -146,6 +161,10 @@ def main():
 
     train_file = "train.bin"
     val_file = "val.bin"
+
+    train_file = "go.train.npy"
+    val_file = "go.val.npy"
+
     shakespeare = GPTDataModule(
         train_file,
         val_file,
@@ -155,7 +174,7 @@ def main():
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         dirpath="checkpoints",
-        filename="gpt-{epoch:02d}-{val_loss:.2f}",
+        filename="gopt-{epoch:02d}-{val_loss:.2f}",
     )
 
     trainer = pl.Trainer(
