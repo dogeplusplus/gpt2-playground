@@ -48,13 +48,12 @@ class GoDataset(Dataset):
 
 
 class GPTDataModule(pl.LightningDataModule):
-    def __init__(self, train_file, val_file, batch_size, block_size):
+    def __init__(self, train_file, val_file, batch_size):
         super().__init__()
         self.train_file = train_file
         self.val_file = val_file
 
         self.batch_size = batch_size
-        self.block_size = block_size
 
     def setup(self, stage=None):
         self.train_data = np.load(self.train_file).astype(np.int16)
@@ -98,8 +97,6 @@ class LitGPT(pl.LightningModule):
         self.beta2 = beta2
         self.weight_decay = weight_decay
 
-        self.save_hyperparameters(ignore=["model"])
-
     def training_step(self, batch, batch_idx):
         x, y = batch
         _, loss = self.model(x, targets=y)
@@ -128,9 +125,9 @@ def main():
     n_embd = 768
     bias = True
     dropout = 0.0
-    vocab_size = 50304
+    vocab_size = 1600
     accumulation_steps = 5 * 8
-    batch_size = 16
+    batch_size = 96
     block_size = 1024
 
     learning_rate = 6e-4
@@ -169,7 +166,6 @@ def main():
         train_file,
         val_file,
         batch_size=batch_size,
-        block_size=block_size,
     )
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
@@ -178,7 +174,7 @@ def main():
     )
 
     trainer = pl.Trainer(
-        max_epochs=10,
+        max_epochs=5,
         accumulate_grad_batches=accumulation_steps,
         precision="bf16",
         strategy="deepspeed_stage_2",
