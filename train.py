@@ -97,6 +97,8 @@ class LitGPT(pl.LightningModule):
         self.beta2 = beta2
         self.weight_decay = weight_decay
 
+        self.save_hyperparameters()
+
     def training_step(self, batch, batch_idx):
         x, y = batch
         _, loss = self.model(x, targets=y)
@@ -170,7 +172,7 @@ def main():
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         dirpath="checkpoints",
-        filename="gopt-{epoch:02d}-{val_loss:.2f}",
+        filename="gopt",
     )
 
     trainer = pl.Trainer(
