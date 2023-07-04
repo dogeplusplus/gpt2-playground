@@ -83,7 +83,7 @@ class GPTDataModule(pl.LightningDataModule):
 class LitGPT(pl.LightningModule):
     def __init__(
         self,
-        model: GPT,
+        model_args: dict,
         learning_rate: float,
         beta1: float,
         beta2: float,
@@ -91,7 +91,8 @@ class LitGPT(pl.LightningModule):
     ):
 
         super().__init__()
-        self.model = model
+        gpt_config = GPTConfig(**model_args)
+        self.model = GPT(gpt_config)
         self.learning_rate = learning_rate
         self.beta1 = beta1
         self.beta2 = beta2
@@ -147,10 +148,8 @@ def main():
         dropout=dropout,
     )
 
-    gpt_config = GPTConfig(**model_args)
-    model = GPT(gpt_config)
     gpt_model = LitGPT(
-        model,
+        model_args,
         learning_rate,
         beta1,
         beta2,
@@ -171,17 +170,21 @@ def main():
     )
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        dirpath="checkpoints",
         filename="gopt",
+        save_top_k=1,
+        verbose=True,
+        monitor="val_loss",
+        mode="min",
     )
 
     trainer = pl.Trainer(
-        max_epochs=5,
+        max_epochs=10,
         accumulate_grad_batches=accumulation_steps,
         precision="bf16",
-        strategy="deepspeed_stage_2",
+        strategy="ddp",
         devices=1,
         callbacks=[checkpoint_callback],
+        default_root_dir="checkpoints"
     )
     trainer.fit(
         model=gpt_model,
