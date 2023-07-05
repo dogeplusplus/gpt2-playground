@@ -9,12 +9,16 @@ from pathlib import Path
 from rich.progress import track
 
 # For some reason there are moves on the 19th position
-ALL_MOVES = [
+ALL_MOVES = [" "] + [
     (p, (i, j)) for p in ('b', 'w') for i in range(25) for j in range(25)
-] + [('w', None), ('b', None)]
+] + [('w', None), ('b', None), "SOS", "EOS"]
 
 ENCODING = {
-    move: i for i, move in enumerate(ALL_MOVES, 1)
+    move: i for i, move in enumerate(ALL_MOVES)
+}
+
+DECODING = {
+    i: move for i, move in enumerate(ALL_MOVES)
 }
 
 
@@ -37,13 +41,18 @@ def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path, max_seq_length
     train_ids = [grid_encoding(m) for m in train_df["moves"].to_list()]
     val_ids = [grid_encoding(m) for m in val_df["moves"].to_list()]
 
+    start_token = ENCODING["SOS"]
+    end_token = ENCODING["EOS"]
+
     # 0 for padding
     train_ids = np.array(
-        [x + [0] * (max_seq_length - len(x)) for x in train_ids if len(x) <= max_seq_length],
+        [[start_token] + x + [end_token] + [0] * (max_seq_length - len(x) - 2)
+         for x in train_ids if len(x) <= max_seq_length],
         dtype=np.uint16,
     )
     val_ids = np.array(
-        [x + [0] * (max_seq_length - len(x)) for x in val_ids if len(x) <= max_seq_length],
+        [[start_token] + x + [end_token] + [0] * (max_seq_length - len(x) - 2)
+         for x in val_ids if len(x) <= max_seq_length],
         dtype=np.uint16,
     )
 
