@@ -2,6 +2,7 @@ import os
 import torch
 import numpy as np
 import pytorch_lightning as pl
+from pytorch_lightning.loggers.wandb import WandbLogger
 
 
 from torch.utils.data import Dataset
@@ -133,6 +134,7 @@ def main():
     batch_size = 96
     block_size = 1024
 
+    epochs = 1
     learning_rate = 6e-4
     beta1 = 0.9
     beta2 = 0.95
@@ -168,6 +170,7 @@ def main():
         val_file,
         batch_size=batch_size,
     )
+    wandb_logger = WandbLogger(project="gopt", log_model=True)
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         filename="gopt",
@@ -178,13 +181,14 @@ def main():
     )
 
     trainer = pl.Trainer(
-        max_epochs=10,
+        max_epochs=epochs,
         accumulate_grad_batches=accumulation_steps,
         precision="bf16",
         strategy="ddp",
         devices=1,
         callbacks=[checkpoint_callback],
-        default_root_dir="checkpoints"
+        default_root_dir="checkpoints",
+        logger=wandb_logger,
     )
     trainer.fit(
         model=gpt_model,
