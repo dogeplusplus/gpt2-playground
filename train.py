@@ -134,7 +134,7 @@ def main():
     batch_size = 96
     block_size = 1024
 
-    epochs = 1
+    epochs = 100
     learning_rate = 6e-4
     beta1 = 0.9
     beta2 = 0.95

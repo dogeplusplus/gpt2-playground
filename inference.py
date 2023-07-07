@@ -1,11 +1,13 @@
+import wandb
 import string
 import torch
+import torch.nn as nn
 
 from typing import List, Tuple
 from pathlib import Path
 
 from train import LitGPT
-from prepare_go_dataset import DECODING
+from prepare_go_dataset import DECODING, ENCODING
 
 
 def decode_game(game: List[int]) -> str:
@@ -30,23 +32,31 @@ def render_board(moves: List[Tuple[str, Tuple[int, int]]]) -> str:
 
 
 def generate_game(
-    model_path: Path,
+    model: nn.Module,
     temperature: float = 0.8,
     top_k: int = 10,
     max_new_tokens: int = 512,
 ) -> str:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    lit_gpt = LitGPT.load_from_checkpoint(model_path, map_location=device)
-    gpt = lit_gpt.model
-    x = torch.tensor([0], dtype=torch.long, device=device)[None, ...]
-    generations = gpt.generate(x, max_new_tokens, temperature, top_k).tolist()
+    x = torch.tensor([ENCODING["SOS"]], dtype=torch.long, device=device)[None, ...]
+    generations = model.generate(x, max_new_tokens, temperature, top_k).tolist()
     return decode_game(generations[0])
 
 
 def main():
-    MODEL_PATH = Path.cwd() / "checkpoints/lightning_logs/version_0/checkpoints/gopt.ckpt"
-    game = generate_game(MODEL_PATH)
-    print(game)
+    artifact_uri = "dogeplusplus/gopt/model-q873g3uo:v0"
+    run = wandb.init(job_type="inference")
+    artifact = run.use_artifact(artifact_uri, type="model")
+    artifact_dir = artifact.download()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    gpt = LitGPT.load_from_checkpoint(Path(artifact_dir) / "model.ckpt", map_location=device)
+    model = gpt.model
+    model.eval()
+
+    game = generate_game(model)
+    game = [g for g in game if g != " "]
+    render_board(game[1:-1])
 
 
 if __name__ == "__main__":
