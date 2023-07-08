@@ -12,6 +12,8 @@ numpy = "1.24.0"
 tiktoken = "^0.4.0"
 einops = "^0.6.1"
 deepspeed = "^0.9.5"
+click = "^8.1.4"
+py7zr = "^0.20.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.0"

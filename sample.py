@@ -3,7 +3,7 @@ import tiktoken
 
 from train import LitGPT
 
-from model import GPT, GPTConfig
+from models.gpt import GPT, GPTConfig
 
 n_layer = 12
 n_head = 12

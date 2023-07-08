@@ -7,7 +7,7 @@ from typing import List, Tuple
 from pathlib import Path
 
 from train import LitGPT
-from prepare_go_dataset import DECODING, ENCODING
+from preprocessing.csv_export import DECODING, ENCODING
 
 
 def decode_game(game: List[int]) -> str:
@@ -44,7 +44,8 @@ def generate_game(
 
 
 def main():
-    artifact_uri = "dogeplusplus/gopt/model-q873g3uo:v0"
+    # artifact_uri = "dogeplusplus/gopt/model-q873g3uo:v0"
+    artifact_uri = "dogeplusplus/gopt/model-iroycecx:v0"
     run = wandb.init(job_type="inference")
     artifact = run.use_artifact(artifact_uri, type="model")
     artifact_dir = artifact.download()
@@ -54,8 +55,9 @@ def main():
     model = gpt.model
     model.eval()
 
-    game = generate_game(model)
+    game = generate_game(model, top_k=1000)
     game = [g for g in game if g != " "]
+    print(game)
     render_board(game[1:-1])
 
 

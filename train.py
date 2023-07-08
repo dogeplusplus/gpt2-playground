@@ -4,12 +4,10 @@ import numpy as np
 import pytorch_lightning as pl
 from pytorch_lightning.loggers.wandb import WandbLogger
 
-
 from torch.utils.data import Dataset
 
-from model import GPTConfig, GPT
+from models.gpt import GPTConfig, GPT
 
-torch.manual_seed(42)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cuda.allow_tf32 = True
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -126,7 +124,8 @@ class LitGPT(pl.LightningModule):
 def main():
     n_layer = 12
     n_head = 12
-    n_embd = 768
+    # n_embd = 768
+    n_embd = 12  # testing low dim for go data
     bias = True
     dropout = 0.0
     vocab_size = 1600

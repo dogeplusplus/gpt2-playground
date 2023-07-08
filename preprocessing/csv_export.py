@@ -1,6 +1,8 @@
 import tiktoken
 import pandas as pd
 import numpy as np
+import click
+import logging
 
 from ast import literal_eval
 from typing import List, Tuple
@@ -20,6 +22,8 @@ ENCODING = {
 DECODING = {
     i: move for i, move in enumerate(ALL_MOVES)
 }
+
+logger = logging.getLogger(__name__)
 
 
 def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
@@ -97,12 +101,18 @@ def read_sgf_moves(sgf_file: Path):
     return parameters
 
 
+@click.command()
+@click.option("--sgf-file-path", type=click.Path(exists=True))
+@click.option("--output-file", type=click.Path())
 def export_games_to_csv(sgf_file_path: Path, output_file: Path):
     all_sgf_files = list(Path(sgf_file_path).glob("**/*.sgf"))
     rows = []
     for file in track(all_sgf_files, description="Reading SGF files", total=len(all_sgf_files)):
-        row = read_sgf_moves(open(file, "rb"))
-        rows.append(row)
+        try:
+            row = read_sgf_moves(open(file, "rb"))
+            rows.append(row)
+        except ValueError as e:
+            logger.warning(f"Could not load file {file} because of {e}")
 
     df = pd.DataFrame(rows)
     df.to_csv(output_file, index=False)
@@ -130,16 +140,5 @@ def encode_moves_nlp(moves_df: pd.DataFrame, output_file: Path):
     np.save(Path(output_file).with_suffix(".val.npy"), val_ids)
 
 
-def main():
-    sgf_file_path = str(Path.home() / "Downloads/games")
-    output_file = Path("games.csv")
-
-    if not output_file.exists():
-        export_games_to_csv(sgf_file_path, output_file)
-
-    encoded_file = "go.bin"
-    encode_moves_fixed(pd.read_csv(output_file), encoded_file)
-
-
 if __name__ == "__main__":
-    main()
+    export_games_to_csv()
