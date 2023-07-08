@@ -23,6 +23,17 @@ DECODING = {
     i: move for i, move in enumerate(ALL_MOVES)
 }
 
+OUTCOME = {
+    "B+R": 0,
+    "W+R": 1,
+    "B+T": 2,
+    "W+T": 3,
+    "O": 4,
+    "*": 5,
+    "B+": 6,
+    "W+": 7,
+}
+
 logger = logging.getLogger(__name__)
 
 

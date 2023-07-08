@@ -1,11 +1,14 @@
 import os
 import torch
+import pandas as pd
 import numpy as np
 import pytorch_lightning as pl
+
+from ast import literal_eval
+from torch.utils.data import Dataset
 from pytorch_lightning.loggers.wandb import WandbLogger
 
-from torch.utils.data import Dataset
-
+from preprocessing.csv_export import ENCODING, OUTCOME
 from models.gpt import GPTConfig, GPT
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -44,6 +47,32 @@ class GoDataset(Dataset):
         y = torch.from_numpy(np.concatenate([self.data[idx, 1:], np.array([0])]).astype(np.int64))
 
         return x, y
+
+
+class GoCsvDataset(Dataset):
+    def __init__(self, data: pd.DataFrame):
+        super().__init__()
+        self.data = data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        return self.data.iloc[index].to_dict()
+
+
+def process_game(game: dict):
+    moves = game["moves"]
+    moves = literal_eval(moves)
+    moves = [m for m in moves if m[0] is not None]
+    moves_encoded = [ENCODING[m] for m in moves]
+
+    game["moves"] = moves_encoded
+    game["white_rank"] = game["white_rank"].replace("çº§", "d").replace("æ®µ", "k")
+    game["black_rank"] = game["black_rank"].replace("çº§", "d").replace("æ®µ", "k")
+    game["result"] = OUTCOME[game["result"]]
+
+    return game
 
 
 class GPTDataModule(pl.LightningDataModule):
@@ -124,8 +153,7 @@ class LitGPT(pl.LightningModule):
 def main():
     n_layer = 12
     n_head = 12
-    # n_embd = 768
-    n_embd = 12  # testing low dim for go data
+    n_embd = 128
     bias = True
     dropout = 0.0
     vocab_size = 1600
