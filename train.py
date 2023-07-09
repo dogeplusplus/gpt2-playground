@@ -1,14 +1,16 @@
 import os
+import re
 import torch
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 
+from pathlib import Path
 from ast import literal_eval
 from torch.utils.data import Dataset
 from pytorch_lightning.loggers.wandb import WandbLogger
 
-from preprocessing.csv_export import ENCODING, OUTCOME
+from preprocessing.csv_export import ENCODING
 from models.gpt import GPTConfig, GPT
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -50,18 +52,23 @@ class GoDataset(Dataset):
 
 
 class GoCsvDataset(Dataset):
-    def __init__(self, data: pd.DataFrame):
+    def __init__(self, csv_path: Path):
         super().__init__()
-        self.data = data
+        self.df = pd.read_csv(csv_path)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.df)
 
     def __getitem__(self, index):
-        return self.data.iloc[index].to_dict()
+        return self.df.iloc[index]
 
 
 def process_game(game: dict):
+    outcome = {
+        "B": 0,
+        "W": 1,
+        "d": 2,
+    }
     moves = game["moves"]
     moves = literal_eval(moves)
     moves = [m for m in moves if m[0] is not None]
@@ -70,8 +77,15 @@ def process_game(game: dict):
     game["moves"] = moves_encoded
     game["white_rank"] = game["white_rank"].replace("çº§", "d").replace("æ®µ", "k")
     game["black_rank"] = game["black_rank"].replace("çº§", "d").replace("æ®µ", "k")
-    game["result"] = OUTCOME[game["result"]]
 
+    pattern = r"([+-]?\d+(\.\d+)?)"
+    result = re.findall(pattern, game["result"])
+    game["result"] = outcome[game["result"][0]]
+    if result:
+        result = result[0][0]
+        game["point_difference"] = float(result)
+    else:
+        game["point_difference"] = None
     return game
 
 
@@ -153,7 +167,7 @@ class LitGPT(pl.LightningModule):
 def main():
     n_layer = 12
     n_head = 12
-    n_embd = 128
+    n_embd = 768
     bias = True
     dropout = 0.0
     vocab_size = 1600
@@ -186,11 +200,8 @@ def main():
     )
     gpt_model = torch.compile(gpt_model)
 
-    train_file = "train.bin"
-    val_file = "val.bin"
-
-    train_file = "go.train.npy"
-    val_file = "go.val.npy"
+    train_file = "data/processed/go.train.npy"
+    val_file = "data/processed/go.val.npy"
 
     shakespeare = GPTDataModule(
         train_file,
