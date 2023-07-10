@@ -4,33 +4,15 @@ import numpy as np
 import click
 import logging
 
-from ast import literal_eval
-from typing import List, Tuple
+from typing import List
 from sgfmill import sgf
 from pathlib import Path
 from rich.progress import track
 
-# For some reason there are moves on the 19th position
-ALL_MOVES = [" "] + [
-    (p, (i, j)) for p in ('b', 'w') for i in range(25) for j in range(25)
-] + [('w', None), ('b', None), "SOS", "EOS"]
+from preprocessing.feature_engineering import grid_encoding, ENCODING
 
-ENCODING = {
-    move: i for i, move in enumerate(ALL_MOVES)
-}
-
-DECODING = {
-    i: move for i, move in enumerate(ALL_MOVES)
-}
 
 logger = logging.getLogger(__name__)
-
-
-def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
-    moves = literal_eval(moves)
-    moves = [m for m in moves if m[0] is not None]
-    moves_encoded = [ENCODING[m] for m in moves]
-    return moves_encoded
 
 
 def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path, max_seq_length: int = 512) -> List[int]:

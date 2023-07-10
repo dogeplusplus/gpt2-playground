@@ -1,7 +1,22 @@
 import numpy as np
 
+from ast import literal_eval
 from einops import rearrange
 from typing import Tuple, List
+
+
+# For some reason there are moves on the 19th position
+ALL_MOVES = [" "] + [
+    (p, (i, j)) for p in ('b', 'w') for i in range(25) for j in range(25)
+] + [('w', None), ('b', None), "SOS", "EOS"]
+
+ENCODING = {
+    move: i for i, move in enumerate(ALL_MOVES)
+}
+
+DECODING = {
+    i: move for i, move in enumerate(ALL_MOVES)
+}
 
 
 def board_state(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
@@ -14,3 +29,10 @@ def board_state(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
     one_hot = np.eye(num_classes, dtype=np.uint8)[board]
     one_hot = rearrange(one_hot, "h w c -> c h w")
     return one_hot
+
+
+def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
+    moves = literal_eval(moves)
+    moves = [m for m in moves if m[0] is not None]
+    moves_encoded = [ENCODING[m] for m in moves]
+    return moves_encoded
