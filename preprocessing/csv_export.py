@@ -9,7 +9,7 @@ from sgfmill import sgf
 from pathlib import Path
 from rich.progress import track
 
-from preprocessing.feature_engineering import grid_encoding, ENCODING
+from preprocessing.feature_engineering import grid_encoding
 
 
 logger = logging.getLogger(__name__)
@@ -27,17 +27,14 @@ def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path, max_seq_length
     train_ids = [grid_encoding(m) for m in train_df["moves"].to_list()]
     val_ids = [grid_encoding(m) for m in val_df["moves"].to_list()]
 
-    start_token = ENCODING["SOS"]
-    end_token = ENCODING["EOS"]
-
     # 0 for padding
     train_ids = np.array(
-        [[start_token] + x + [end_token] + [0] * (max_seq_length - len(x) - 2)
+        [x + [0] * (max_seq_length - len(x))
          for x in train_ids if len(x) <= max_seq_length],
         dtype=np.uint16,
     )
     val_ids = np.array(
-        [[start_token] + x + [end_token] + [0] * (max_seq_length - len(x) - 2)
+        [x + [0] * (max_seq_length - len(x))
          for x in val_ids if len(x) <= max_seq_length],
         dtype=np.uint16,
     )

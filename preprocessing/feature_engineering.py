@@ -34,5 +34,5 @@ def board_state(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
 def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
     moves = literal_eval(moves)
     moves = [m for m in moves if m[0] is not None]
-    moves_encoded = [ENCODING[m] for m in moves]
+    moves_encoded = [ENCODING["SOS"]] + [ENCODING[m] for m in moves] + [ENCODING["EOS"]]
     return moves_encoded
