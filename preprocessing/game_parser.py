@@ -10,6 +10,11 @@ from rich.progress import track
 logger = logging.getLogger(__name__)
 
 
+@click.group()
+def cli():
+    pass
+
+
 def read_sgf_moves(sgf_file: Path):
     sgf_game = sgf.Sgf_game.from_bytes(open(sgf_file, "rb").read())
     main_game = sgf_game.get_main_sequence()
@@ -40,23 +45,38 @@ def read_sgf_moves(sgf_file: Path):
     return parameters
 
 
-@click.command()
-@click.option("--sgf-file-path", type=click.Path(exists=True))
-@click.option("--output-file", type=click.Path())
-def export_games_to_file(sgf_file_path: Path, output_file: Path):
-    all_sgf_files = list(Path(sgf_file_path).glob("**/*.sgf"))
+def rank_export(directory: Path, output_file: Path):
+    all_sgf_files = list(Path(directory).glob("**/*.sgf"))
     rows = []
-    for file in track(all_sgf_files, description="Reading SGF files", total=len(all_sgf_files)):
+    for fp in track(all_sgf_files, description="Reading SGF files", total=len(all_sgf_files)):
         try:
-            row = read_sgf_moves(file)
+            row = read_sgf_moves(fp)
             rows.append(row)
         except ValueError as e:
-            logger.warning(f"Could not load file {file} because of {e}")
+            logger.warning(f"Could not load file {fp} because of {e}")
 
     df = pd.DataFrame(rows)
     df["moves"] = df["moves"].apply(str)
     df.to_parquet(output_file, index=False)
 
 
+@cli.command()
+@click.option("--directory", type=click.Path(exists=True))
+@click.option("--output-file", type=click.Path())
+def single_rank_export(directory: Path, output_file: Path):
+    rank_export(directory, output_file)
+
+
+@cli.command()
+@click.option("--base-dir", type=click.Path(exists=True))
+@click.option("--output-dir", type=click.Path())
+def batch_rank_export(base_dir: Path, output_dir: Path):
+    Path(output_dir).mkdir(exist_ok=True, parents=True)
+    for folder in Path(base_dir).iterdir():
+        if folder.is_dir():
+            output_file = f"{output_dir}/{folder.name}.parquet"
+            rank_export(str(folder), output_file)
+
+
 if __name__ == "__main__":
-    export_games_to_file()
+    cli()
