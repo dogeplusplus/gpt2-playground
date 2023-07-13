@@ -16,10 +16,12 @@ ALL_MOVES = [" "] + [
 ENCODING = {
     move: i for i, move in enumerate(ALL_MOVES)
 }
+ENCODING["[PAD]"] = -1
 
 DECODING = {
     i: move for i, move in enumerate(ALL_MOVES)
 }
+DECODING[-1] = "[PAD]"
 
 
 def board_state(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
@@ -49,14 +51,15 @@ def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path, max_seq_length
     train_ids = [grid_encoding(m) for m in train_df["moves"].to_list()]
     val_ids = [grid_encoding(m) for m in val_df["moves"].to_list()]
 
-    # 0 for padding
+    pad_token = ENCODING["[PAD]"]
+    # -1 token for padding
     train_ids = np.array(
-        [x + [0] * (max_seq_length - len(x))
+        [x + [pad_token] * (max_seq_length - len(x))
          for x in train_ids if len(x) <= max_seq_length],
         dtype=np.uint16,
     )
     val_ids = np.array(
-        [x + [0] * (max_seq_length - len(x))
+        [x + [pad_token] * (max_seq_length - len(x))
          for x in val_ids if len(x) <= max_seq_length],
         dtype=np.uint16,
     )
