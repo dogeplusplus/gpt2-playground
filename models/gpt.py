@@ -158,6 +158,7 @@ class GPT(nn.Module):
         x = self.transformer.ln_f(x)
 
         if targets is not None:
+            targets = torch.where(targets == 0, -1, targets)
             logits = self.lm_head(x)
             loss = F.cross_entropy(rearrange(logits, "b t v -> (b t) v"),
                                    rearrange(targets, "b t -> (b t)"), ignore_index=-1)

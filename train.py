@@ -1,16 +1,13 @@
 import os
-import re
 import torch
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 
 from pathlib import Path
-from ast import literal_eval
 from torch.utils.data import Dataset
 from pytorch_lightning.loggers.wandb import WandbLogger
 
-from preprocessing.csv_export import ENCODING
 from models.gpt import GPTConfig, GPT
 
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -61,32 +58,6 @@ class GoCsvDataset(Dataset):
 
     def __getitem__(self, index):
         return self.df.iloc[index]
-
-
-def process_game(game: dict):
-    outcome = {
-        "B": 0,
-        "W": 1,
-        "d": 2,
-    }
-    moves = game["moves"]
-    moves = literal_eval(moves)
-    moves = [m for m in moves if m[0] is not None]
-    moves_encoded = [ENCODING[m] for m in moves]
-
-    game["moves"] = moves_encoded
-    game["white_rank"] = game["white_rank"].replace("çº§", "d").replace("æ®µ", "k")
-    game["black_rank"] = game["black_rank"].replace("çº§", "d").replace("æ®µ", "k")
-
-    pattern = r"([+-]?\d+(\.\d+)?)"
-    result = re.findall(pattern, game["result"])
-    game["result"] = outcome[game["result"][0]]
-    if result:
-        result = result[0][0]
-        game["point_difference"] = float(result)
-    else:
-        game["point_difference"] = None
-    return game
 
 
 class GPTDataModule(pl.LightningDataModule):
