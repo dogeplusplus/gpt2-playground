@@ -25,6 +25,9 @@ def read_sgf_moves(sgf_file: Path):
             return root_node.get(key)
         except Exception:
             return None
+    moves = [node.get_move() for node in main_game]
+    if moves[0] == (None, None):
+        moves = moves[1:]
 
     parameters = dict(
         event=get_value("EV"),
@@ -38,7 +41,7 @@ def read_sgf_moves(sgf_file: Path):
         result=get_value("RE"),
         rules=get_value("RU"),
         overtime=get_value("OT"),
-        moves=[node.get_move() for node in main_game],
+        moves=moves,
         game_rank=sgf_file.parent.name,
     )
 
