@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 
 from pathlib import Path
 from torch.utils.data import Dataset
+from lightning.pytorch.callbacks import EarlyStopping
 from pytorch_lightning.loggers.wandb import WandbLogger
 
 from models.gpt import GPTConfig, GPT
@@ -188,6 +189,7 @@ def main():
         monitor="val_loss",
         mode="min",
     )
+    early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=5, verbose=True)
 
     trainer = pl.Trainer(
         max_epochs=epochs,
@@ -195,7 +197,7 @@ def main():
         precision="bf16",
         strategy="ddp",
         devices=1,
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, early_stopping],
         default_root_dir="checkpoints",
         logger=wandb_logger,
     )
