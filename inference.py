@@ -1,13 +1,14 @@
+import click
 import wandb
 import string
 import torch
-import torch.nn as nn
 
 from typing import List, Tuple
 from pathlib import Path
 
 from train import LitGPT
-from preprocessing.feature_engineering import DECODING, ENCODING
+from models.gpt import GPT
+from constants import DECODING, ENCODING
 
 
 def decode_game(game: List[int]) -> str:
@@ -32,7 +33,7 @@ def render_board(moves: List[Tuple[str, Tuple[int, int]]]) -> str:
 
 
 def generate_game(
-    model: nn.Module,
+    model: GPT,
     temperature: float = 0.8,
     top_k: int = 10,
     max_new_tokens: int = 512,
@@ -43,20 +44,23 @@ def generate_game(
     return decode_game(generations[0])
 
 
-def main():
-    artifact_uri = "dogeplusplus/gopt/model-k0tgjw3w:v0"
-    run = wandb.init(job_type="inference")
-    artifact = run.use_artifact(artifact_uri, type="model")
-    artifact_dir = artifact.download()
+@click.command()
+@click.argument("artifact_uri", type=str)
+def main(artifact_uri):
+    if not Path(artifact_uri).exists():
+        run = wandb.init(job_type="inference")
+        artifact = run.use_artifact(artifact_uri, type="model")
+        artifact_dir = artifact.download()
+    else:
+        artifact_dir = artifact_uri
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     gpt = LitGPT.load_from_checkpoint(Path(artifact_dir) / "model.ckpt", map_location=device)
     model = gpt.model
     model.eval()
 
-    game = generate_game(model, top_k=1000)
+    game = generate_game(model, top_k=100)
     game = [g for g in game if g != " "]
-    print(game)
     render_board(game[1:-1])
 
 
