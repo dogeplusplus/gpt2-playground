@@ -9,7 +9,7 @@ ENCODING = {
 }
 
 DECODING = {
-    i: move for i, move in enumerate(MOVES)
+    i: move for move, i in ENCODING.items()
 }
 
 
@@ -24,6 +24,6 @@ ENCODING9X9 = {
     move: i for i, move in enumerate(MOVES9)
 }
 
-DECODING = {
+DECODING9X9 = {
     i: move for i, move in ENCODING9X9.items()
 }
