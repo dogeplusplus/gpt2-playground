@@ -1,5 +1,6 @@
 import os
 import torch
+import click
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -136,23 +137,37 @@ class LitGPT(pl.LightningModule):
         return optimizer
 
 
-def main():
-    n_layer = 12
-    n_head = 12
-    n_embd = 768
-    bias = True
-    dropout = 0.0
-    vocab_size = 1600
-    accumulation_steps = 5 * 8
-    batch_size = 96
-    block_size = 1024
-
-    epochs = 100
-    learning_rate = 6e-4
-    beta1 = 0.9
-    beta2 = 0.95
-    weight_decay = 0.1
-
+@click.command(help="Train a GPT model on Go games")
+@click.argument("n_layer", type=int, default=12)
+@click.argument("n_head", type=int, default=12)
+@click.argument("n_embd", type=int, default=768)
+@click.argument("bias", type=bool, default=True)
+@click.argument("dropout", type=float, default=0.0)
+@click.argument("vocab_size", type=int, default=1600)
+@click.argument("accumulation_steps", type=int, default=5 * 8)
+@click.argument("batch_size", type=int, default=96)
+@click.argument("block_size", type=int, default=1024)
+@click.argument("epochs", type=int, default=100)
+@click.argument("learning_rate", type=float, default=6e-4)
+@click.argument("beta1", type=float, default=0.9)
+@click.argument("beta2", type=float, default=0.95)
+@click.argument("weight_decay", type=float, default=0.1)
+def main(
+    n_layer,
+    n_head,
+    n_embd,
+    bias,
+    dropout,
+    vocab_size,
+    accumulation_steps,
+    batch_size,
+    block_size,
+    epochs,
+    learning_rate,
+    beta1,
+    beta2,
+    weight_decay,
+):
     model_args = dict(
         n_layer=n_layer,
         n_head=n_head,
