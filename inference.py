@@ -3,6 +3,7 @@ import wandb
 import string
 import torch
 
+from einops import repeat
 from typing import List, Tuple
 from pathlib import Path
 
@@ -37,9 +38,11 @@ def generate_game(
     temperature: float = 0.8,
     top_k: int = 10,
     max_new_tokens: int = 512,
+    batch_size: int = 1,
 ) -> str:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    x = torch.tensor([ENCODING["SOS"]], dtype=torch.long, device=device)[None, ...]
+    x = torch.tensor([ENCODING["SOS"]], dtype=torch.long, device=device)
+    x = repeat(x, "n -> b n", b=batch_size)
     generations = model.generate(x, max_new_tokens, temperature, top_k).tolist()
     return decode_game(generations[0])
 
