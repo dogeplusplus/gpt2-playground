@@ -101,3 +101,15 @@ def process_result(game: Dict[str, Any]):
     else:
         game["point_difference"] = None
     return game
+
+
+def board_state_history(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
+    player_to_idx = {"b": 1, "w": 2}
+    board = np.zeros((len(moves), 9, 9), dtype=np.uint8)
+    for i, (player, move) in enumerate(moves):
+        board[i:, move[0], move[1]] = player_to_idx[player]
+
+    num_classes = 3
+    one_hot = np.eye(num_classes, dtype=np.uint8)[board]
+    one_hot = rearrange(one_hot, "t h w c -> t c h w")
+    return one_hot
