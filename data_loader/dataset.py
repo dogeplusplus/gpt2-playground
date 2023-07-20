@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import pandas as pd
@@ -69,9 +70,10 @@ def add_board_state_history(example):
 
 
 def huggingface_dataset(path: str) -> Dataset:
+    workers = os.cpu_count()
     dataset = HFDataset.from_csv(path)
-    dataset = dataset.map(process_game)
-    dataset = dataset.filter(lambda x: len(x["moves"]) > 0)
-    dataset = dataset.map(add_board_state_history)
+    dataset = dataset.map(process_game, num_proc=workers)
+    dataset = dataset.filter(lambda x: len(x["moves"]) > 0, num_proc=workers)
+    dataset = dataset.map(add_board_state_history, num_proc=workers)
 
     return dataset
