@@ -1,4 +1,3 @@
-import re
 import tiktoken
 import numpy as np
 import pandas as pd
@@ -39,7 +38,6 @@ def encode_moves_fixed(moves_df: pd.DataFrame, output_file: Path, max_seq_length
     val_ids = [grid_encoding(m) for m in val_df["moves"].to_list()]
 
     pad_token = 0
-    # -1 token for padding
     train_ids = np.array(
         [x + [pad_token] * (max_seq_length - len(x))
          for x in train_ids if len(x) <= max_seq_length],
@@ -86,21 +84,21 @@ def extract_features(example: Dict[str, Any]):
     return example
 
 
-def process_result(game: Dict[str, Any]):
+def process_result(result: str) -> Tuple[int, int]:
     outcome = {
         "B": 0,
         "W": 1,
         "d": 2,
     }
-    pattern = r"([+-]?\d+(\.\d+)?)"
-    result = re.findall(pattern, game["result"])
-    game["result"] = outcome[game["result"][0]]
-    if result:
-        result = result[0][0]
-        game["point_difference"] = float(result)
+    point_difference = None
+    if result == "Draw":
+        player = "d"
     else:
-        game["point_difference"] = None
-    return game
+        player, diff = result.split("+")
+        if diff not in ["Resign", "Time", "Illegal"]:
+            point_difference = float(diff)
+
+    return outcome[player], point_difference
 
 
 def board_state_history(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:

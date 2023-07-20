@@ -3,7 +3,11 @@ import numpy as np
 import pandas as pd
 
 from pathlib import Path
+from ast import literal_eval
+from datasets import Dataset as HFDataset
 from torch.utils.data import Dataset
+
+from data_loader.feature_engineering import board_state_history, process_result, grid_encoding
 
 
 class ShakespeareDataset(Dataset):
@@ -49,3 +53,25 @@ class GoCsvDataset(Dataset):
 
     def __getitem__(self, index):
         return self.df.iloc[index]
+
+
+def process_game(example):
+    moves = literal_eval(example["moves"])
+    example["moves"] = grid_encoding(moves)
+    example["result"], example["point_difference"] = process_result(example["result"])
+
+    return example
+
+
+def add_board_state_history(example):
+    example["board_history"] = board_state_history(example["moves"])
+    return example
+
+
+def huggingface_dataset(path: str) -> Dataset:
+    dataset = HFDataset.from_csv(path)
+    dataset = dataset.map(process_game)
+    dataset = dataset.filter(lambda x: len(x["moves"]) > 0)
+    dataset = dataset.map(add_board_state_history)
+
+    return dataset
