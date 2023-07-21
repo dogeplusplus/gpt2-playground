@@ -25,5 +25,5 @@ ENCODING9X9 = {
 }
 
 DECODING9X9 = {
-    i: move for i, move in ENCODING9X9.items()
+    i: move for move, i in ENCODING9X9.items()
 }

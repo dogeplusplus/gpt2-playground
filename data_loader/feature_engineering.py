@@ -6,12 +6,12 @@ from pathlib import Path
 from einops import rearrange
 from typing import Tuple, List
 
-from constants import ENCODING, DECODING
+from constants import ENCODING9X9, DECODING9X9
 
 
 def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
     moves = [m for m in moves if m[0] is not None]
-    moves_encoded = [ENCODING["SOS"]] + [ENCODING[m] for m in moves] + [ENCODING["EOS"]]
+    moves_encoded = [ENCODING9X9["SOS"]] + [ENCODING9X9[m] for m in moves] + [ENCODING9X9["EOS"]]
     return moves_encoded
 
 
@@ -77,7 +77,7 @@ def process_result(result: str) -> Tuple[int, int]:
 
 
 def board_state_history(moves: List[int]) -> np.ndarray:
-    moves_decoded = [DECODING[m] for m in moves]
+    moves_decoded = [DECODING9X9[m] for m in moves if DECODING9X9[m] not in ["SOS", "EOS", " "]]
     player_to_idx = {"b": 1, "w": 2}
     board = np.zeros((len(moves), 9, 9), dtype=np.uint8)
     for i, (player, move) in enumerate(moves_decoded):
