@@ -3,23 +3,10 @@ import numpy as np
 import pandas as pd
 
 from pathlib import Path
-from ast import literal_eval
 from einops import rearrange
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List
 
-from constants import ENCODING
-
-
-def board_state(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
-    board = np.zeros((19, 19), dtype=np.uint8)
-    player_to_idx = {"b": 1, "w": 2}
-    for player, (y, x) in moves:
-        board[y][x] = player_to_idx[player]
-
-    num_classes = 3
-    one_hot = np.eye(num_classes, dtype=np.uint8)[board]
-    one_hot = rearrange(one_hot, "h w c -> c h w")
-    return one_hot
+from constants import ENCODING, DECODING
 
 
 def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
@@ -72,18 +59,6 @@ def encode_moves_nlp(moves_df: pd.DataFrame, output_file: Path):
     np.save(Path(output_file).with_suffix(".val.npy"), val_ids)
 
 
-def extract_features(example: Dict[str, Any]):
-    # Skip first move as always none
-    example["moves"] = literal_eval(example["moves"])[1:]
-    example["board_state"] = np.stack([
-        board_state(example["moves"][:i])
-        for i in range(1, len(example["moves"])+1)
-    ])
-    example["moves"] = grid_encoding(example["moves"])
-
-    return example
-
-
 def process_result(result: str) -> Tuple[int, int]:
     outcome = {
         "B": 0,
@@ -101,10 +76,13 @@ def process_result(result: str) -> Tuple[int, int]:
     return outcome[player], point_difference
 
 
-def board_state_history(moves: List[Tuple[str, Tuple[int, int]]]) -> np.ndarray:
+def board_state_history(moves: List[int]) -> np.ndarray:
+    moves_decoded = [DECODING[m] for m in moves]
     player_to_idx = {"b": 1, "w": 2}
     board = np.zeros((len(moves), 9, 9), dtype=np.uint8)
-    for i, (player, move) in enumerate(moves):
+    for i, (player, move) in enumerate(moves_decoded):
+        if move is None:
+            continue
         board[i:, move[0], move[1]] = player_to_idx[player]
 
     num_classes = 3

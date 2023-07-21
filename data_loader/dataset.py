@@ -58,14 +58,14 @@ class GoCsvDataset(Dataset):
 
 def process_game(example):
     moves = literal_eval(example["moves"])
-    example["moves"] = grid_encoding(moves)
+    example["moves_encoded"] = grid_encoding(moves)
     example["result"], example["point_difference"] = process_result(example["result"])
 
     return example
 
 
 def add_board_state_history(example):
-    example["board_history"] = board_state_history(example["moves"])
+    example["board_history"] = board_state_history(example["moves_encoded"])
     return example
 
 
@@ -73,7 +73,7 @@ def huggingface_dataset(path: str) -> Dataset:
     workers = os.cpu_count()
     dataset = HFDataset.from_csv(path)
     dataset = dataset.map(process_game, num_proc=workers)
-    dataset = dataset.filter(lambda x: len(x["moves"]) > 0, num_proc=workers)
+    dataset = dataset.filter(lambda x: len(x["moves_encoded"]) > 0, num_proc=workers)
     dataset = dataset.map(add_board_state_history, num_proc=workers)
 
     return dataset
