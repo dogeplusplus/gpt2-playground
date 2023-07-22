@@ -95,12 +95,12 @@ def collate_fn(batch: list, encoding: dict = ENCODING9X9):
                mode="constant", constant_values=-1)
         for b in batch
     ]
-    padded_history = np.stack(padded_history)
+    padded_history = torch.tensor(padded_history, dtype=torch.float32)
 
     batch = {
         "moves_encoded": padded_encodings,
         "board_history": padded_history,
-        "result": np.array([x["result"] for x in batch]),
+        "result": torch.tensor([x["result"] for x in batch], dtype=torch.float32),
     }
 
     return batch

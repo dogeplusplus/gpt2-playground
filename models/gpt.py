@@ -1,12 +1,11 @@
 import math
+import torch
 import inspect
+import torch.nn as nn
+import torch.nn.functional as F
 
 from einops import repeat, rearrange
 from dataclasses import dataclass
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 
 class LayerNorm(nn.Module):
@@ -76,46 +75,61 @@ class MLP(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, encoder_decoder=False):
         super().__init__()
         self.ln1 = LayerNorm(config.n_embd, config.bias)
         self.attn = CausalSelfAttention(config)
         self.ln2 = LayerNorm(config.n_embd, config.bias)
         self.mlp = MLP(config)
+        if encoder_decoder:
+            self.cross_attn = nn.MultiheadAttention(
+                config.n_embd,
+                config.n_head,
+                dropout=config.dropout,
+            )
 
-    def forward(self, x):
+    def forward(self, x, enc_out=None):
         x = x + self.attn(self.ln1(x))
-        x = x + self.mlp(self.ln2(x))
+        if enc_out is not None:
+            c = self.cross_attn(self.ln2(x), enc_out, enc_out)[0]
+            x = x + self.mlp(c)
+        else:
+            x = x + self.mlp(self.ln2(x))
         return x
 
 
 @dataclass
 class GPTConfig:
     block_size: int = 1024
-    vocab_size: int = 50304
+    vocab_size: int = 1024
     n_layer: int = 12
     n_head: int = 12
     n_embd: int = 768
     dropout: float = 0.0
     bias: bool = True
+    encoder_decoder: bool = False
 
 
 class GPT(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, encoder=None):
         super().__init__()
         self.config = config
 
-        self.transformer = nn.ModuleDict(dict(
+        self.transformer_encoder = encoder
+        if encoder is not None:
+            self.encoder_decoder = True
+        else:
+            self.encoder_decoder = False
+        self.transformer_decoder = nn.ModuleDict(dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),
             wpe=nn.Embedding(config.block_size, config.n_embd),
             drop=nn.Dropout(config.dropout),
-            h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
+            h=nn.ModuleList([Block(config, self.encoder_decoder) for _ in range(config.n_layer)]),
             ln_f=LayerNorm(config.n_embd, config.bias),
         ))
 
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
-
-        self.transformer.wte.weight = self.lm_head.weight
+        self.transformer_decoder.wte.weight = self.lm_head.weight
 
         self.apply(self._init_weights)
 
@@ -129,7 +143,7 @@ class GPT(nn.Module):
         n_params = sum(p.numel() for p in self.parameters())
 
         if non_embedding:
-            n_params -= self.transformer.wpe.weight.numel()
+            n_params -= self.transformer_decoder.wpe.weight.numel()
         return n_params
 
     def _init_weights(self, module):
@@ -140,7 +154,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0., std=0.02)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, board_states=None, targets=None):
         device = idx.device
         b, t = idx.size()
         assert t <= self.config.block_size, \
@@ -148,14 +162,18 @@ class GPT(nn.Module):
         pos = torch.arange(0, t, dtype=torch.long, device=device)
 
         # forward the gpt model
-        tok_emb = self.transformer.wte(idx)
-        pos_emb = self.transformer.wpe(pos)
-        x = self.transformer.drop(tok_emb + pos_emb)
+        tok_emb = self.transformer_decoder.wte(idx)
+        pos_emb = self.transformer_decoder.wpe(pos)
+        x = self.transformer_decoder.drop(tok_emb + pos_emb)
 
-        for block in self.transformer.h:
-            x = block(x)
+        enc_out = None
+        if self.transformer_encoder is not None and board_states is not None:
+            enc_out = self.transformer_encoder(board_states)
 
-        x = self.transformer.ln_f(x)
+        for block in self.transformer_decoder.h:
+            x = block(x, enc_out)
+
+        x = self.transformer_decoder.ln_f(x)
 
         if targets is not None:
             targets = torch.where(targets == 0, -1, targets)
@@ -171,8 +189,8 @@ class GPT(nn.Module):
     def crop_block_size(self, block_size):
         assert block_size <= self.config.block_size
         self.config.block_size = block_size
-        self.transformer.wpe = nn.Parameter(self.transformer.wpi.weight[:block_size])
-        for block in self.transformer.h:
+        self.transformer_decoder.wpe = nn.Parameter(self.transformer_decoder.wpi.weight[:block_size])
+        for block in self.transformer_decoder.h:
             if hasattr(block.attn, "bias"):
                 block.attn.bias = block.attn.bias[:, :, :block_size, :block_size]
 
@@ -272,3 +290,48 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+
+
+@dataclass
+class BoardEncoderConfig:
+    n_embd: int = 768
+    n_head: int = 12
+    board_size: int = 9
+    n_layers: int = 2
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=512):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
+
+
+class BoardEncoder(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.proj = nn.Linear(3 * config.board_size * config.board_size, config.n_embd)
+        self.norm = nn.LayerNorm(config.n_embd)
+        self.encoder = [nn.TransformerEncoderLayer(config.n_embd, config.n_head) for _ in range(config.n_layers)]
+        self.pos_encoder = PositionalEncoding(config.n_embd)
+
+    def forward(self, x):
+        x = rearrange(x, "b t c h w -> b t (c h w)")
+        x = self.proj(x)
+        x = self.norm(x)
+        x = self.pos_encoder(x)
+        for layer in self.encoder:
+            x = layer(x)
+        return x
