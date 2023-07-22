@@ -7,7 +7,9 @@ from pathlib import Path
 from ast import literal_eval
 from datasets import Dataset as HFDataset
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 
+from constants import ENCODING9X9
 from data_loader.feature_engineering import board_state_history, process_result, grid_encoding
 
 
@@ -75,5 +77,30 @@ def huggingface_dataset(path: str) -> Dataset:
     dataset = dataset.map(process_game, num_proc=workers)
     dataset = dataset.filter(lambda x: len(x["moves_encoded"]) > 0, num_proc=workers)
     dataset = dataset.map(add_board_state_history, num_proc=workers)
+    dataset.set_format(type="torch", columns=["moves_encoded", "board_history", "result"])
 
     return dataset
+
+
+def collate_fn(batch: list, encoding: dict = ENCODING9X9):
+    padded_encodings = pad_sequence(
+        [x["moves_encoded"] for x in batch],
+        batch_first=True,
+        padding_value=encoding[" "],
+    )
+    t_max = padded_encodings.shape[1]
+    padded_history = [
+        np.pad(b["board_history"],
+               ((0, t_max - b["board_history"].shape[0]), (0, 0), (0, 0), (0, 0)),
+               mode="constant", constant_values=-1)
+        for b in batch
+    ]
+    padded_history = np.stack(padded_history)
+
+    batch = {
+        "moves_encoded": padded_encodings,
+        "board_history": padded_history,
+        "result": np.array([x["result"] for x in batch]),
+    }
+
+    return batch
