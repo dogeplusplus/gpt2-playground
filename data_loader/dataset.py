@@ -58,16 +58,18 @@ class GoCsvDataset(Dataset):
         return self.df.iloc[index]
 
 
-def process_game(example):
+def process_game(example: dict) -> dict:
     moves = literal_eval(example["moves"])
-    example["moves_encoded"] = grid_encoding(moves)
+    moves_target = moves[1:] + [" "]
+    example["input_ids"] = grid_encoding(moves)
+    example["target_ids"] = grid_encoding(moves_target)
     example["result"], example["point_difference"] = process_result(example["result"])
 
     return example
 
 
-def add_board_state_history(example):
-    example["board_history"] = board_state_history(example["moves_encoded"])
+def add_board_state_history(example: dict) -> dict:
+    example["board_history"] = board_state_history(example["input_ids"])
     return example
 
 
@@ -75,30 +77,37 @@ def huggingface_dataset(path: str) -> Dataset:
     workers = os.cpu_count()
     dataset = HFDataset.from_csv(path)
     dataset = dataset.map(process_game, num_proc=workers)
-    dataset = dataset.filter(lambda x: len(x["moves_encoded"]) > 0, num_proc=workers)
+    dataset = dataset.filter(lambda x: len(x["input_ids"]) > 0, num_proc=workers)
     dataset = dataset.map(add_board_state_history, num_proc=workers)
-    dataset.set_format(type="torch", columns=["moves_encoded", "board_history", "result"])
+    dataset.set_format(type="torch", columns=["input_ids", "target_ids", "board_history", "result"])
 
     return dataset
 
 
 def collate_fn(batch: list, encoding: dict = ENCODING9X9):
     padded_encodings = pad_sequence(
-        [x["moves_encoded"] for x in batch],
+        [x["input_ids"] for x in batch],
         batch_first=True,
         padding_value=encoding[" "],
     )
+    padded_target_encodings = pad_sequence(
+        [x["target_ids"] for x in batch],
+        batch_first=True,
+        padding_value=encoding[" "],
+    )
+
     t_max = padded_encodings.shape[1]
-    padded_history = [
+    padded_history = np.array([
         np.pad(b["board_history"],
                ((0, t_max - b["board_history"].shape[0]), (0, 0), (0, 0), (0, 0)),
                mode="constant", constant_values=-1)
         for b in batch
-    ]
+    ])
     padded_history = torch.tensor(padded_history, dtype=torch.float32)
 
     batch = {
-        "moves_encoded": padded_encodings,
+        "input_ids": padded_encodings,
+        "target_ids": padded_target_encodings,
         "board_history": padded_history,
         "result": torch.tensor([x["result"] for x in batch], dtype=torch.float32),
     }

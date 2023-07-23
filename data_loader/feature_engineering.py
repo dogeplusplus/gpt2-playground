@@ -76,10 +76,10 @@ def process_result(result: str) -> Tuple[int, int]:
     return outcome[player], point_difference
 
 
-def board_state_history(moves: List[int]) -> np.ndarray:
-    moves_decoded = [DECODING9X9[m] for m in moves if DECODING9X9[m] not in ["SOS", "EOS", " "]]
+def board_state_history(moves: List[int], decoding: dict = DECODING9X9, board_size: int = 9) -> np.ndarray:
+    moves_decoded = [decoding[m] for m in moves if decoding[m] not in ["SOS", "EOS", " "]]
     player_to_idx = {"b": 1, "w": 2}
-    board = np.zeros((len(moves), 9, 9), dtype=np.uint8)
+    board = np.zeros((len(moves), board_size, board_size), dtype=np.uint8)
     for i, (player, move) in enumerate(moves_decoded):
         if move is None:
             continue
