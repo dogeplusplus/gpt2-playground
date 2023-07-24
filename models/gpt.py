@@ -75,17 +75,19 @@ class MLP(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config, encoder_decoder=False):
+    def __init__(self, config: dict, enc_embd: int = None):
         super().__init__()
         self.ln1 = LayerNorm(config.n_embd, config.bias)
         self.attn = CausalSelfAttention(config)
         self.ln2 = LayerNorm(config.n_embd, config.bias)
         self.mlp = MLP(config)
-        if encoder_decoder:
+        if enc_embd is not None:
             self.cross_attn = nn.MultiheadAttention(
                 config.n_embd,
                 config.n_head,
                 dropout=config.dropout,
+                kdim=enc_embd,
+                vdim=enc_embd,
             )
 
     def forward(self, x, enc_out=None):
@@ -118,13 +120,16 @@ class GPT(nn.Module):
         self.transformer_encoder = encoder
         if encoder is not None:
             self.encoder_decoder = True
+            enc_embd = encoder.config.n_embd
         else:
             self.encoder_decoder = False
+            enc_embd = None
+
         self.transformer_decoder = nn.ModuleDict(dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),
             wpe=nn.Embedding(config.block_size, config.n_embd),
             drop=nn.Dropout(config.dropout),
-            h=nn.ModuleList([Block(config, self.encoder_decoder) for _ in range(config.n_layer)]),
+            h=nn.ModuleList([Block(config, enc_embd) for _ in range(config.n_layer)]),
             ln_f=LayerNorm(config.n_embd, config.bias),
         ))
 
@@ -154,7 +159,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0., std=0.02)
 
-    def forward(self, idx, board_states=None, targets=None):
+    def forward(self, idx, targets=None, board_states=None):
         device = idx.device
         b, t = idx.size()
         assert t <= self.config.block_size, \
@@ -167,7 +172,7 @@ class GPT(nn.Module):
         x = self.transformer_decoder.drop(tok_emb + pos_emb)
 
         enc_out = None
-        if self.transformer_encoder is not None and board_states is not None:
+        if self.encoder_decoder and board_states is not None:
             enc_out = self.transformer_encoder(board_states)
 
         for block in self.transformer_decoder.h:
@@ -311,7 +316,7 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        self.register_parameter('pe', nn.Parameter(pe, requires_grad=False))
 
     def forward(self, x):
         x = x + self.pe[:x.size(0), :]
@@ -324,7 +329,11 @@ class BoardEncoder(nn.Module):
         self.config = config
         self.proj = nn.Linear(3 * config.board_size * config.board_size, config.n_embd)
         self.norm = nn.LayerNorm(config.n_embd)
-        self.encoder = [nn.TransformerEncoderLayer(config.n_embd, config.n_head) for _ in range(config.n_layers)]
+        # Dropout set to 0 for now due to some tracing error with flash attention when compiling the model?
+        self.encoder = nn.ModuleList([
+            nn.TransformerEncoderLayer(config.n_embd, config.n_head, batch_first=True, dropout=0)
+            for _ in range(config.n_layers)
+        ])
         self.pos_encoder = PositionalEncoding(config.n_embd)
 
     def forward(self, x):
