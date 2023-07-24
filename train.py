@@ -139,7 +139,7 @@ class LitGPT(pl.LightningModule):
 @click.option("--dropout", type=float, default=0.0)
 @click.option("--vocab_size", type=int, default=1600)
 @click.option("--accumulation_steps", type=int, default=5 * 8)
-@click.option("--batch_size", type=int, default=96)
+@click.option("--batch_size", type=int, default=32)
 @click.option("--block_size", type=int, default=1024)
 @click.option("--epochs", type=int, default=100)
 @click.option("--learning_rate", type=float, default=6e-4)
@@ -196,11 +196,7 @@ def main(
         weight_decay,
         encoder_args,
     )
-
-    import torch._dynamo.config as dyn
-    dyn.suppress_errors = True
     gpt_model = torch.compile(gpt_model)
-
     go_9x9 = Go9x9DataModule("data/processed/9x9_games.csv", batch_size=batch_size)
     wandb_logger = WandbLogger(project="gopt", log_model=True)
 
