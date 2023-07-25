@@ -139,7 +139,7 @@ class LitGPT(pl.LightningModule):
 @click.option("--dropout", type=float, default=0.0)
 @click.option("--vocab_size", type=int, default=1600)
 @click.option("--accumulation_steps", type=int, default=5 * 8)
-@click.option("--batch_size", type=int, default=64)
+@click.option("--batch_size", type=int, default=16)
 @click.option("--block_size", type=int, default=1024)
 @click.option("--epochs", type=int, default=100)
 @click.option("--learning_rate", type=float, default=6e-4)

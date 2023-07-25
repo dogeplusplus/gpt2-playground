@@ -75,7 +75,7 @@ class MLP(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config: dict, enc_embd: int = None):
+    def __init__(self, config: dict, enc_embd: int = None, max_seq_length: int = 1024):
         super().__init__()
         self.ln1 = LayerNorm(config.n_embd, config.bias)
         self.attn = CausalSelfAttention(config)
@@ -88,12 +88,17 @@ class Block(nn.Module):
                 dropout=config.dropout,
                 kdim=enc_embd,
                 vdim=enc_embd,
+                batch_first=True,
             )
+            # Decoder can only attend to current state of board and past states in cross attention
+            self.register_buffer("attn_mask", torch.tril(torch.ones(max_seq_length, max_seq_length)))
 
     def forward(self, x, enc_out=None):
         x = x + self.attn(self.ln1(x))
         if enc_out is not None:
-            c = self.cross_attn(self.ln2(x), enc_out, enc_out)[0]
+            seq_len = x.size(1)
+            attn_mask = self.attn_mask[:seq_len, :seq_len]
+            c = self.cross_attn(self.ln2(x), enc_out, enc_out, attn_mask=attn_mask)[0]
             x = x + self.mlp(c)
         else:
             x = x + self.mlp(self.ln2(x))
@@ -129,7 +134,7 @@ class GPT(nn.Module):
             wte=nn.Embedding(config.vocab_size, config.n_embd),
             wpe=nn.Embedding(config.block_size, config.n_embd),
             drop=nn.Dropout(config.dropout),
-            h=nn.ModuleList([Block(config, enc_embd) for _ in range(config.n_layer)]),
+            h=nn.ModuleList([Block(config, enc_embd, config.block_size) for _ in range(config.n_layer)]),
             ln_f=LayerNorm(config.n_embd, config.bias),
         ))
 
