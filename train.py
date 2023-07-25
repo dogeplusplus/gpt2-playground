@@ -16,11 +16,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class Go9x9DataModule(pl.LightningDataModule):
-    def __init__(self, file: str, batch_size: int, valid_size: float = 0.2):
+    def __init__(self, file: str, batch_size: int, valid_size: float = 0.2, block_size: int = 1024):
         super().__init__()
         self.file = file
         self.batch_size = batch_size
-        self.dataset = huggingface_dataset(file)
+        self.dataset = huggingface_dataset(file, block_size)
         self.dataset = self.dataset.train_test_split(test_size=valid_size)
 
     def train_dataloader(self):
@@ -139,7 +139,7 @@ class LitGPT(pl.LightningModule):
 @click.option("--dropout", type=float, default=0.0)
 @click.option("--vocab_size", type=int, default=1600)
 @click.option("--accumulation_steps", type=int, default=5 * 8)
-@click.option("--batch_size", type=int, default=32)
+@click.option("--batch_size", type=int, default=64)
 @click.option("--block_size", type=int, default=1024)
 @click.option("--epochs", type=int, default=100)
 @click.option("--learning_rate", type=float, default=6e-4)
@@ -196,7 +196,6 @@ def main(
         weight_decay,
         encoder_args,
     )
-    gpt_model = torch.compile(gpt_model)
     go_9x9 = Go9x9DataModule("data/processed/9x9_games.csv", batch_size=batch_size)
     wandb_logger = WandbLogger(project="gopt", log_model=True)
 

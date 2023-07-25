@@ -73,11 +73,13 @@ def add_board_state_history(example: dict) -> dict:
     return example
 
 
-def huggingface_dataset(path: str) -> Dataset:
+def huggingface_dataset(path: str, max_game_length: int = 1024) -> Dataset:
     workers = os.cpu_count()
     dataset = HFDataset.from_csv(path)
     dataset = dataset.map(process_game, num_proc=workers)
     dataset = dataset.filter(lambda x: len(x["input_ids"]) > 0, num_proc=workers)
+    # shouldn't be any games that are this lone
+    dataset = dataset.filter(lambda x: len(x["input_ids"]) <= max_game_length, num_proc=workers)
     dataset = dataset.map(add_board_state_history, num_proc=workers)
     dataset.set_format(type="torch", columns=["input_ids", "target_ids", "board_history", "result"])
 
