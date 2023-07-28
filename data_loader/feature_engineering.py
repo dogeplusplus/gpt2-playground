@@ -9,9 +9,9 @@ from typing import Tuple, List
 from constants import ENCODING9X9, DECODING9X9
 
 
-def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]]) -> int:
+def grid_encoding(moves: List[Tuple[str, Tuple[int, int]]], encoding: dict = ENCODING9X9) -> int:
     moves = [m for m in moves if m[0] is not None]
-    moves_encoded = [ENCODING9X9["SOS"]] + [ENCODING9X9[m] for m in moves] + [ENCODING9X9["EOS"]]
+    moves_encoded = [encoding["SOS"]] + [encoding[m] for m in moves] + [encoding["EOS"]]
     return moves_encoded
 
 
